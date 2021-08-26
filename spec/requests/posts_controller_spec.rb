@@ -2156,6 +2156,52 @@ describe PostsController do
     end
   end
 
+  describe "#pending" do
+    subject(:request) { get "/posts/#{user.username}/pending.json" }
+
+    context "when user is not logged in" do
+      it_behaves_like "action requires login", :get, "/posts/system/pending.json"
+    end
+
+    context "when user is logged in" do
+      let(:pending_posts) { response.parsed_body["pending_posts"] }
+
+      before { sign_in(user) }
+
+      context "when there are existing pending posts" do
+        let!(:owner_pending_posts) { Fabricate.times(2, :reviewable_queued_post, created_by: user) }
+        let!(:other_pending_post) { Fabricate(:reviewable_queued_post) }
+        let(:expected_keys) do
+          %w[
+          avatar_template
+          category_id
+          created_at
+          created_by_id
+          name
+          raw_text
+          title
+          topic_id
+          topic_url
+          username
+          ]
+        end
+
+        it "returns current user’s own pending posts" do
+          request
+          expect(pending_posts).to all include "id" => be_in(owner_pending_posts.map(&:id))
+          expect(pending_posts).to all include(*expected_keys)
+        end
+      end
+
+      context "when there aren't any pending posts" do
+        it "returns an empty array" do
+          request
+          expect(pending_posts).to be_empty
+        end
+      end
+    end
+  end
+
   describe Plugin::Instance do
     describe '#add_permitted_post_create_param' do
       fab!(:user) { Fabricate(:user) }
